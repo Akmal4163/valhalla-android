@@ -50,10 +50,9 @@ jobs:
         run: |
           echo "NDK=$ANDROID_SDK/ndk/25.2.9519653" >> $GITHUB_ENV
           echo "VALHALLA_DIR=$GITHUB_WORKSPACE/extProjects/valhalla" >> $GITHUB_ENV
-          echo "TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64" >> $GITHUB_ENV
 
-          # Add Clang to PATH
-          echo "PATH=\$PATH:$TOOLCHAIN/bin" >> $GITHUB_ENV
+          # Add NDK toolchain to PATH
+          echo "PATH=\$PATH:$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
 
       - name: Install required packages
         run: |
@@ -68,13 +67,13 @@ jobs:
           TARGET=arm64-v8a-linux-android
           API=28
 
-          # Toolchain binaries
-          export AR=$TOOLCHAIN/bin/llvm-ar
-          export AS=$TOOLCHAIN/bin/llvm-as
-          export CC=$TOOLCHAIN/bin/clang
-          export CXX=$TOOLCHAIN/bin/clang++
-          export LD=$TOOLCHAIN/bin/ld
-          export STRIP=$TOOLCHAIN/bin/llvm-strip
+          # Toolchain binaries (using built-in NDK toolchain)
+          export CC=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
+          export CXX=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++
+          export AR=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
+          export AS=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-as
+          export LD=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/ld
+          export STRIP=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip
 
           # Flags
           export CFLAGS="-fPIE -fPIC"
