@@ -15,7 +15,7 @@ jobs:
     env:
       ANDROID_SDK: ${{ github.workspace }}/Android/Sdk
       NDK: ${{ github.workspace }}/Android/Sdk/ndk/25.2.9519653  # Update dengan versi NDK yang sesuai
-      VALHALLA_DIR: ${{ github.workspace }}/external/valhalla  # Set ke direktori Valhalla
+      VALHALLA_DIR: ${{ github.workspace }}/extProjects/valhalla  # Set ke direktori Valhalla
       PROTOBUF_VERSION: 3.6.1
 
     steps:
@@ -65,7 +65,14 @@ jobs:
         # Build protobuf
         ./autogen.sh
         ./configure --prefix=$BUILD_DIR/protobuf-install --host=$TARGET --with-protoc=$BUILD_DIR/protobuf-host/bin/protoc CFLAGS="-fPIC -DGOOGLE_PROTOBUF_NO_RTTI" CXXFLAGS="-fPIC -DGOOGLE_PROTOBUF_NO_RTTI"
-        make -j$(nproc)
+        
+        # Tambahkan langkah untuk melihat isi config.log jika konfigurasi gagal
+        if ! make -j$(nproc); then
+          echo "Build failed. Displaying config.log:"
+          cat config.log
+          exit 1
+        fi
+        
         make install
 
     - name: Install Boost
