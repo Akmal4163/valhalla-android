@@ -70,6 +70,9 @@ jobs:
         if ! make -j$(nproc); then
           echo "Build failed. Displaying config.log:"
           cat config.log
+          # Upload config.log sebagai artefak jika build gagal
+          mkdir -p $BUILD_DIR/logs
+          cp config.log $BUILD_DIR/logs/config.log
           exit 1
         fi
         
@@ -131,3 +134,10 @@ jobs:
       with:
         name: shared-libraries
         path: $BUILD_DIR/output/  # Upload seluruh shared library di direktori output
+
+    - name: Upload config.log
+      if: failure()  # Hanya unggah jika langkah sebelumnya gagal
+      uses: actions/upload-artifact@v3
+      with:
+        name: config-log
+        path: $BUILD_DIR/logs/config.log
