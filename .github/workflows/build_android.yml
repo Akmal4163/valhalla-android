@@ -87,21 +87,21 @@ jobs:
 
           mkdir -p $BUILD_DIR/valhalla && cd $BUILD_DIR/valhalla
 
-          conan install $VALHALLA_DIR
-          cmake \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DENABLE_TOOLS=Off \
-              -DENABLE_DATA_TOOLS=Off \
-              -DENABLE_PYTHON_BINDINGS=Off \
-              -DENABLE_NODE_BINDINGS=Off \
-              -DENABLE_HTTP=Off \
-              -DENABLE_SERVICES=Off \
-              -DANDROID_ABI=arm64-v8a \
-              -DANDROID_PLATFORM=android-$API \
-              -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
-              -DBoost_NO_BOOST_CMAKE=ON \
-              -DBOOST_ROOT=/usr/include/boost \
-              -S $VALHALLA_DIR \
-              -B .
 
+          cmake . \
+            -DANDROID_PLATFORM=android-api28 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_TOOLS=Off \
+            -DENABLE_DATA_TOOLS=Off \
+            -DENABLE_PYTHON_BINDINGS=Off \
+            -DENABLE_TESTS=Off \
+            -DENABLE_HTTP=Off \
+            -DENABLE_SERVICES=Off \
+            -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
+            -DANDROID_ABI=${TARGET} \
+            "$VALHALLA_DIR"/. || exit
+
+          make clean
+
+          
           make -j$(nproc)
