@@ -52,6 +52,9 @@ jobs:
           echo "VALHALLA_DIR=$GITHUB_WORKSPACE/extProjects/valhalla" >> $GITHUB_ENV
           echo "TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64" >> $GITHUB_ENV
 
+          # Add Clang to PATH
+          echo "PATH=\$PATH:$TOOLCHAIN/bin" >> $GITHUB_ENV
+
       - name: Install required packages
         run: |
           sudo apt-get install -y cmake build-essential wget
