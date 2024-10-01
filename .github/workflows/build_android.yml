@@ -1,0 +1,126 @@
+name: Build Android (aarch64)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    env:
+      ANDROID_SDK: ${{ runner.home }}/Android/Sdk
+      NDK: ${{ runner.home }}/Android/Sdk/ndk/25.2.9519653  # Update dengan versi NDK yang sesuai
+      VALHALLA_DIR: ${{ runner.workspace }}/external/valhalla  # Set ke direktori Valhalla
+      PROTOBUF_VERSION: 3.6.1
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v2
+      with:
+        api-level: 28
+        ndk-version: 25.2.9519653  # Sesuaikan versi NDK
+
+    - name: Set up build environment
+      run: |
+        # Directory dari skrip
+        DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+        
+        # Android toolchain
+        export TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
+        
+        # Target settings untuk aarch64
+        export TARGET=aarch64-linux-android
+        export API=28
+
+        # Toolchain binaries
+        export AR=$TOOLCHAIN/bin/llvm-ar
+        export AS=$TOOLCHAIN/bin/llvm-as
+        export CC=$TOOLCHAIN/bin/clang
+        export CXX=$TOOLCHAIN/bin/clang++
+        export LD=$TOOLCHAIN/bin/ld
+        export STRIP=$TOOLCHAIN/bin/llvm-strip
+
+        # Flags
+        export CFLAGS="-fPIE -fPIC"
+        export LDFLAGS="-pie"
+        export CXXFLAGS="$CFLAGS"
+        
+        # Build directory
+        mkdir -p build-android && cd build-android
+        export BUILD_DIR=`pwd`
+
+        # Download dan ekstrak kode sumber protobuf
+        wget https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOBUF_VERSION/protobuf-cpp-$PROTOBUF_VERSION.tar.gz
+        tar xvf protobuf-cpp-$PROTOBUF_VERSION.tar.gz
+        cd protobuf-$PROTOBUF_VERSION
+
+        # Build protobuf
+        ./autogen.sh
+        ./configure --prefix=$BUILD_DIR/protobuf-install --host=$TARGET --with-protoc=$BUILD_DIR/protobuf-host/bin/protoc CFLAGS="-fPIC -DGOOGLE_PROTOBUF_NO_RTTI" CXXFLAGS="-fPIC -DGOOGLE_PROTOBUF_NO_RTTI"
+        make -j$(nproc)
+        make install
+
+    - name: Install Boost
+      run: |
+        # Buat direktori untuk Boost
+        mkdir -p $BUILD_DIR/boost && cd $BUILD_DIR/boost
+        BOOST_VERSION=1.68.0
+        BOOST_VERSION_UNDERSCORE="${BOOST_VERSION//./_}"
+        
+        # Download dan ekstrak Boost
+        wget https://dl.bintray.com/boostorg/release/$BOOST_VERSION/source/boost_$BOOST_VERSION_UNDERSCORE.tar.gz
+        tar -xf boost_$BOOST_VERSION_UNDERSCORE.tar.gz
+        cd boost_$BOOST_VERSION_UNDERSCORE
+        
+        # Bootstrap Boost
+        ./bootstrap.sh
+        
+        # Build Boost untuk arsitektur aarch64
+        ./b2 toolset=clang aarch64-linux-android --prefix=$BUILD_DIR/boost-install install
+
+    - name: Build Valhalla
+      run: |
+        mkdir -p $BUILD_DIR/valhalla && cd $BUILD_DIR/valhalla
+        
+        # Konfigurasi dan build Valhalla
+        cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_TOOLS=Off \
+            -DENABLE_DATA_TOOLS=Off \
+            -DENABLE_PYTHON_BINDINGS=Off \
+            -DENABLE_NODE_BINDINGS=Off \
+            -DENABLE_HTTP=Off \
+            -DENABLE_SERVICES=Off \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-$API \
+            -DProtobuf_INCLUDE_DIR=$BUILD_DIR/protobuf-install/include \
+            -DProtobuf_LIBRARY=$BUILD_DIR/protobuf-install/lib/libprotobuf.so \
+            -DProtobuf_PROTOC_EXECUTABLE=$BUILD_DIR/protobuf-install/bin/protoc \
+            -DBoost_INCLUDE_DIR=$BUILD_DIR/boost-install/include \
+            -DBoost_LIBRARY=$BUILD_DIR/boost-install/lib \
+            -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
+            -DBoost_NO_BOOST_CMAKE=ON \
+            -S $VALHALLA_DIR \
+            -B .
+
+        make -j$(nproc)
+
+    - name: Copy shared libraries
+      run: |
+        # Copy shared library ke direktori output
+        mkdir -p $BUILD_DIR/output
+        cp -r $BUILD_DIR/valhalla/lib*.so $BUILD_DIR/output/  # Asumsi shared library diawali dengan 'lib' dan diakhiri dengan '.so'
+
+    - name: Upload shared libraries
+      uses: actions/upload-artifact@v3
+      with:
+        name: shared-libraries
+        path: $BUILD_DIR/output/  # Upload seluruh shared library di direktori output

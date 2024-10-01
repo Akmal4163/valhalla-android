@@ -1,0 +1,9 @@
+[submodule "external/protobuf"]
+	path = external/protobuf
+	url = https://github.com/protocolbuffers/protobuf.git
+[submodule "external/boost"]
+	path = external/boost
+	url = https://github.com/boostorg/boost.git
+[submodule "external/valhalla"]
+	path = external/valhalla
+	url = https://github.com/valhalla/valhalla.git
