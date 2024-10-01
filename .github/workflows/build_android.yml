@@ -16,10 +16,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Superuser
-        run: |
-          sudo su
-
       - name: Set up JDK 11
         uses: actions/setup-java@v2
         with:
@@ -29,8 +25,8 @@ jobs:
       - name: Install Android SDK and NDK
         run: |
           # Install required packages
-          apt-get update
-          apt-get install -y wget unzip
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
 
           # Download command line tools
           SDK_TOOLS_VERSION=8512546
@@ -54,13 +50,14 @@ jobs:
         run: |
           echo "NDK=$ANDROID_SDK/ndk/25.2.9519653" >> $GITHUB_ENV
           echo "VALHALLA_DIR=$GITHUB_WORKSPACE/extProjects/valhalla" >> $GITHUB_ENV
+          echo "TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64" >> $GITHUB_ENV
 
-          # Add NDK toolchain to PATH
-          echo "PATH=\$PATH:$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
+          # Add Clang to PATH
+          echo "PATH=\$PATH:$TOOLCHAIN/bin" >> $GITHUB_ENV
 
       - name: Install required packages
         run: |
-          apt-get install -y cmake build-essential wget
+          sudo apt-get install -y cmake build-essential wget
 
       - name: Build Protobuf and Valhalla
         run: |
@@ -71,13 +68,13 @@ jobs:
           TARGET=arm64-v8a-linux-android
           API=28
 
-          # Toolchain binaries (using built-in NDK toolchain)
-          export CC=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
-          export CXX=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++
-          export AR=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
-          export AS=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-as
-          export LD=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/ld
-          export STRIP=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip
+          # Toolchain binaries
+          export AR=$TOOLCHAIN/bin/llvm-ar
+          export AS=$TOOLCHAIN/bin/llvm-as
+          export CC=$TOOLCHAIN/bin/clang
+          export CXX=$TOOLCHAIN/bin/clang++
+          export LD=$TOOLCHAIN/bin/ld
+          export STRIP=$TOOLCHAIN/bin/llvm-strip
 
           # Flags
           export CFLAGS="-fPIE -fPIC"
