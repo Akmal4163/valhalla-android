@@ -29,7 +29,8 @@ jobs:
         ndk-version: 25.2.9519653  # Sesuaikan versi NDK
     
     - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses
+      run: |
+           y | sdkmanager --licenses
         
     - name: Set up build environment
       run: |
