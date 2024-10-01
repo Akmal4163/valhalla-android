@@ -31,7 +31,10 @@ jobs:
     - name: Accept Android SDK licenses
       run: |
            y | sdkmanager --licenses
-        
+
+    - name: List NDK directory
+      run: ls -l $ANDROID_SDK/ndk/25.2.9519653
+      
     - name: Set up build environment
       run: |
         # Directory dari skrip
