@@ -13,9 +13,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ANDROID_SDK: ${{ runner.home }}/Android/Sdk
-      NDK: ${{ runner.home }}/Android/Sdk/ndk/25.2.9519653  # Update dengan versi NDK yang sesuai
-      VALHALLA_DIR: ${{ runner.workspace }}/external/valhalla  # Set ke direktori Valhalla
+      ANDROID_SDK: ${{ github.workspace }}/Android/Sdk
+      NDK: ${{ github.workspace }}/Android/Sdk/ndk/25.2.9519653  # Update dengan versi NDK yang sesuai
+      VALHALLA_DIR: ${{ github.workspace }}/external/valhalla  # Set ke direktori Valhalla
       PROTOBUF_VERSION: 3.6.1
 
     steps:
