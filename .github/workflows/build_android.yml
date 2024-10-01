@@ -1,9 +1,12 @@
-name: Build Valhalla for Android aarch64
+name: Build Valhalla for Android
 
 on:
   push:
     branches:
-      - main  # Ganti dengan branch yang Anda inginkan
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
@@ -12,48 +15,86 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Set up Android SDK and NDK
+        uses: reactions/setup-android-sdk@v1
         with:
-          submodules: true  # Mengambil submodul
+          sdk-version: 33  # Specify your desired Android SDK version
+          ndk-version: 25.2.9519653  # Specify your desired NDK version
 
-      - name: Set up Android NDK
-        uses: actions/setup-android@v2
-        with:
-          ndk-version: '25.2.9519653'  # Ganti dengan versi NDK yang sesuai
-
-      - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses
-
-      - name: Verify Android SDK installation
-        run: sdkmanager --list
-
-      - name: Build Valhalla and Submodules
+      - name: Set up environment variables
         run: |
-          # Setup environment variables
-          export ANDROID_NDK_HOME=$ANDROID_SDK/ndk/25.2.9519653
-          export CMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake
-          export TARGET_ABI=aarch64-v8a
-          export API_LEVEL=28  # Ganti dengan API level yang Anda inginkan
+          # Set environment variables for Android SDK and NDK
+          echo "ANDROID_SDK=$HOME/Android/Sdk" >> $GITHUB_ENV
+          echo "NDK=$ANDROID_SDK/ndk/25.2.9519653" >> $GITHUB_ENV
+          echo "VALHALLA_DIR=$GITHUB_WORKSPACE/external/valhalla" >> $GITHUB_ENV
+          echo "TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64" >> $GITHUB_ENV
 
-          # Buat direktori build
+      - name: Install required packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget cmake build-essential
+
+      - name: Build Protobuf and Valhalla
+        run: |
+          # Directory of the script
+          DIR="$GITHUB_WORKSPACE"
+
+          # Target settings
+          TARGET=arm64-v8a-linux-androideabi
+          API=28
+
+          # Toolchain binaries
+          export AR=$TOOLCHAIN/bin/llvm-ar
+          export AS=$TOOLCHAIN/bin/llvm-as
+          export CC=$TOOLCHAIN/bin/clang
+          export CXX=$TOOLCHAIN/bin/clang++
+          export LD=$TOOLCHAIN/bin/ld
+          export STRIP=$TOOLCHAIN/bin/llvm-strip
+
+          # Flags
+          export CFLAGS="-fPIE -fPIC"
+          export LDFLAGS="-pie"
+          export CXXFLAGS="$CFLAGS"
+
+          # Build directory
           mkdir -p build-android && cd build-android
+          export BUILD_DIR=$(pwd)
 
-          # Konfigurasi dan build menggunakan CMake
-          cmake \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DANDROID_ABI=$TARGET_ABI \
-            -DANDROID_PLATFORM=android-$API_LEVEL \
-            -DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE \
-            -S ..  # Menunjuk ke root proyek
+          # Download and extract protobuf source code
+          PROTOBUF_VERSION=3.6.1
+          wget https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOBUF_VERSION/protobuf-cpp-$PROTOBUF_VERSION.tar.gz
+          tar xvf protobuf-cpp-$PROTOBUF_VERSION.tar.gz
+          cd protobuf-$PROTOBUF_VERSION
 
-          # Jalankan build
+          # Build protobuf
+          ./autogen.sh
+          ./configure --prefix=$BUILD_DIR/protobuf-install --host=$TARGET --with-protoc=$BUILD_DIR/protobuf-host/bin/protoc CFLAGS="-fPIC -DGOOGLE_PROTOBUF_NO_RTTI" CXXFLAGS="-fPIC -DGOOGLE_PROTOBUF_NO_RTTI"
           make -j$(nproc)
+          make install
 
-          # Menyimpan hasil build
-          mkdir -p $HOME/artifacts
-          cp -r *.so $HOME/artifacts/  # Mengcopy hasil build ke artifacts
+          mkdir -p $BUILD_DIR/valhalla && cd $BUILD_DIR/valhalla
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: valhalla-libs
-          path: $HOME/artifacts/*
+          source ./protocenable.sh
+
+          conan install $VALHALLA_DIR
+          cmake \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DENABLE_TOOLS=Off \
+              -DENABLE_DATA_TOOLS=Off \
+              -DENABLE_PYTHON_BINDINGS=Off \
+              -DENABLE_NODE_BINDINGS=Off \
+              -DENABLE_HTTP=Off \
+              -DENABLE_SERVICES=Off \
+              -DANDROID_ABI=$TARGET \
+              -DANDROID_PLATFORM=android-$API \
+              -DProtobuf_INCLUDE_DIR=$BUILD_DIR/protobuf-install/include \
+              -DProtobuf_LIBRARY=$BUILD_DIR/protobuf-install/lib/libprotobuf.a \
+              -DProtobuf_PROTOC_EXECUTABLE=$BUILD_DIR/protobuf-install/bin/protoc \
+              -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
+              -DBoost_NO_BOOST_CMAKE=ON \
+              -DBOOST_ROOT=/usr/include/boost \
+              -S $VALHALLA_DIR \
+              -B .
+
+          make -j$(nproc)
